@@ -1,5 +1,5 @@
 Plaintext
 streamlit
-PyMuPDF
+pymupdf
 google-generativeai
 pillow
