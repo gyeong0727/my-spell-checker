@@ -2,7 +2,7 @@ name: Keep Streamlit Awake
 
 on:
   schedule:
-    - cron: '0 0 */3 * *' # 3일에 한 번씩 자동으로 실행
+    - cron: '0 0,12 * * *' # 3일에 한 번씩 자동으로 실행
   workflow_dispatch:
 
 jobs:
