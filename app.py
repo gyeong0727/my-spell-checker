@@ -5,7 +5,7 @@ from PIL import Image
 import io
 import concurrent.futures
 import time
-import math # ✨ 콜라주 계산을 위한 수학 모듈 추가
+import math 
 
 try:
     MY_API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -15,14 +15,13 @@ except Exception as e:
     st.stop()
 
 model = genai.GenerativeModel('gemini-2.5-flash')
-fast_config = genai.types.GenerationConfig(max_output_tokens=500)
+# ⚡ [수정 완료] 마이크를 강제로 빼앗던 fast_config (토큰 제한) 족쇄를 완전히 삭제했습니다.
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
 st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (콜라주 가속 🚀)")
 st.write("이미지 병합 기술을 적용하여 30페이지 이상의 제안서도 단숨에 스캔합니다.")
 
-# ✨ 여러 장의 이미지를 하나의 바둑판으로 합치는 마법의 함수
 def create_image_grid(images, max_cols=5):
     if not images:
         return None
@@ -31,7 +30,6 @@ def create_image_grid(images, max_cols=5):
     cols = min(max_cols, n_images)
     rows = math.ceil(n_images / cols)
     
-    # 썸네일 크기 기준으로 전체 도화지 크기 계산
     w, h = images[0].size
     grid = Image.new('RGB', size=(cols * w, rows * h), color=(255, 255, 255))
     
@@ -73,7 +71,7 @@ if uploaded_file is not None:
                 img_data = pix.tobytes("png")
                 
                 img = Image.open(io.BytesIO(img_data)).convert("RGB")
-                img.thumbnail((300, 300)) # 크기를 조금 더 줄여서 병합에 최적화
+                img.thumbnail((300, 300)) 
                 images_for_ai.append(img)
                 
                 my_bar.progress((page_num + 1) / total_pages, text=f"⚡ 초경량 압축 중... ({page_num + 1}/{total_pages}장)")
@@ -85,7 +83,6 @@ if uploaded_file is not None:
             with st.spinner("⚡ 제미나이가 '로고(콜라주)'와 '맞춤법'을 동시에 분석 중입니다..."):
                 
                 def run_vision_task():
-                    # ✨ 32장을 1장으로 합침
                     grid_image = create_image_grid(images_for_ai, max_cols=6) 
                     
                     vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 시각 분석관입니다. 
@@ -93,9 +90,9 @@ if uploaded_file is not None:
 '한국능률협회' 또는 'KMA'의 '그림/도형 형태의 로고나 마크'가 존재하는지 확인하세요.
 텍스트(글자)는 절대 지적하지 마세요. 시각적 로고가 없다면 단호하게 '위반 없음'이라고 답변하세요."""
                     
-                    # 32장이 아닌 딱 1장의 콜라주 이미지 전송!
                     vision_contents = [vision_prompt] + ([grid_image] if grid_image else [])
-                    return model.generate_content(vision_contents, generation_config=fast_config).text
+                    # ⚡ 강제 종료 족쇄 제거 완료
+                    return model.generate_content(vision_contents).text
 
                 def run_grammar_task():
                     grammar_prompt = f"""당신은 공공기관 실무 제안서를 평가하는 최고위 심사위원입니다. 
@@ -112,7 +109,8 @@ if uploaded_file is not None:
 
 [제안서 내용]
 {full_text[:40000]}"""
-                    return model.generate_content(grammar_prompt, generation_config=fast_config).text
+                    # ⚡ 강제 종료 족쇄 제거 완료
+                    return model.generate_content(grammar_prompt).text
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future_vision = executor.submit(run_vision_task)
