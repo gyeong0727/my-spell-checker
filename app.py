@@ -17,14 +17,14 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 🚀")
+# ✨ [문구 수정 완료] 타이틀 및 대기 시간 안내문 변경
+st.title("🛡️ KMA 제안 블라인드 및 오타 검수 시스템 🚀")
 st.write("30초 이내에 검수가 완료되지만, 제안서 용량과 인터넷 환경에 따라 검수시간이 늘어날 수 있습니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf", "ppt", "pptx"])
 
 if uploaded_file is not None:
     
-    # ✨ [핵심 업데이트] 파일이 올라오자마자 자동으로 떴다 사라지는 '토스트 팝업' 알림
     if uploaded_file.name.lower().endswith(('.ppt', '.pptx')):
         st.toast("🚨 PPT 파일은 검수할 수 없습니다! PDF로 변환해 주세요.", icon="❌")
         st.error("🚨 **파일 형식 오류:** PPT 파일은 바로 검수할 수 없습니다.\n\n파워포인트에서 **[다른 이름으로 저장] ➔ [PDF]**로 변환하신 후 다시 올려주세요!")
@@ -49,7 +49,10 @@ if uploaded_file is not None:
 
 [🚨 핵심 지시사항]
 1. '한국능률협회' 또는 'KMA'의 '그림/도형 형태의 로고나 마크'가 존재하는지 샅샅이 확인하세요.
-2. 로고가 발견되면, 해당 이미지 바로 앞에 적힌 페이지 번호를 그대로 가져와 명시하세요. (예: ❌ 제 59페이지: 하단 KMA 로고 발견)
+2. 로고가 발견되면, 읽기 편하게 **반드시 한 줄에 하나씩 줄바꿈(- )**을 해서 명시하세요. 
+   (예시)
+   - ❌ 제 59페이지: 우측 하단 KMA 로고 발견
+   - ❌ 제 73페이지: 좌측 상단 능률협회 마크 발견
 3. 문서에 타이핑된 '일반 텍스트(글자)'는 절대 지적하지 마세요.
 4. 시각적 로고가 없다면 억지로 찾지 말고 단호하게 '✅ 위반 없음'이라고 답변하세요."""
                 
@@ -65,8 +68,10 @@ if uploaded_file is not None:
                     full_text += f"\n--- [ {page_num + 1} 페이지 ] ---\n" + page_text + "\n"
                     
                     for word in forbidden_words:
-                        if word in page_text and f"'{word}'" not in str(found_text_violations):
-                            found_text_violations.append(f"📄 제 {page_num+1}페이지: '{word}' 문구 발견 (텍스트)")
+                        if word in page_text:
+                            v_msg = f"📄 제 {page_num+1}페이지: '{word}' 문구 발견"
+                            if v_msg not in found_text_violations:
+                                found_text_violations.append(v_msg)
                     
                     pix = page.get_pixmap(dpi=40)
                     img_data = pix.tobytes("png")
@@ -101,10 +106,13 @@ if uploaded_file is not None:
 1. 철자 기입 실수로 문맥이 완전히 어색해진 단어 (예: 사전설문 -> 사적설문, 결재 -> 결제 등)
 2. 기업명, 기관명, 고유명사 등의 오탈자
 
-[🚨 출력 규칙]
-1. 반드시 **마크다운 표(Table)** 형식으로만 출력 (| 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |).
-2. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 요약 리포트 작성.
-3. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
+[🚨 출력 규칙 (가독성 최우선)]
+1. 절대 표(Table) 형태로 그리지 마세요. 모바일이나 좁은 화면에서 가독성이 떨어집니다.
+2. 반드시 각 오류마다 **한 줄씩 띄어서 항목별로 깔끔하게** 리스트 형태로 출력하세요.
+   (양식 예시)
+   - 📄 **[O 페이지]** 기존: ~ ➔ 수정: ~ (사유: ~)
+3. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 요약 리포트 작성.
+4. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
 
 [제안서 내용]
 {full_text[:40000]}"""
@@ -122,7 +130,7 @@ if uploaded_file is not None:
                     if found_text_violations:
                         st.error("❌ 텍스트 블라인드 위반 적발!")
                         for v in found_text_violations:
-                            st.write(v)
+                            st.markdown(f"- **{v}**")
                     else:
                         st.success("✅ 텍스트 금지어 검사 통과 (위반 단어 없음)")
                     st.divider()
