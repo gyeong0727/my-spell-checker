@@ -15,7 +15,6 @@ except Exception as e:
     st.stop()
 
 model = genai.GenerativeModel('gemini-2.5-flash')
-# ⚡ [수정 완료] 마이크를 강제로 빼앗던 fast_config (토큰 제한) 족쇄를 완전히 삭제했습니다.
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
@@ -91,25 +90,29 @@ if uploaded_file is not None:
 텍스트(글자)는 절대 지적하지 마세요. 시각적 로고가 없다면 단호하게 '위반 없음'이라고 답변하세요."""
                     
                     vision_contents = [vision_prompt] + ([grid_image] if grid_image else [])
-                    # ⚡ 강제 종료 족쇄 제거 완료
                     return model.generate_content(vision_contents).text
 
                 def run_grammar_task():
-                    grammar_prompt = f"""당신은 공공기관 실무 제안서를 평가하는 최고위 심사위원입니다. 
-다음 텍스트에서 '누가 보아도 의미가 왜곡될 정도로 치명적인 수준의 심각한 오타나 문법 파괴'만 찾아내어 작성해 주세요.
+                    # ✨ [핵심 업데이트] 문맥형 오타(사적설문 등)를 정밀하게 잡아내도록 프롬프트 강화
+                    grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
+다음 텍스트에서 '문맥에 맞지 않는 치명적인 단어 오타(예: 사전설문 -> 사적설문)'와 '의미가 왜곡되는 비문'을 예리하게 찾아내어 작성해 주세요.
 
 [🚨 제안서 특화 예외 규칙 - 절대 지적 금지]
 1. 제안서 특유의 강조형/슬로건 문구는 다소 길거나 어색하더라도 절대 지적 금지.
-2. 개조식 문장 무시. 띄어쓰기 무시.
+2. 개조식 문장(명사로 끝나는 문장) 무시.
+3. 띄어쓰기 오류는 100% 무시.
+
+[🎯 집중 검출 대상 (이런 오타를 찾으세요)]
+1. 철자 기입 실수로 문맥이 완전히 어색해진 단어 (예: 사전설문 -> 사적설문, 결재 -> 결제 등)
+2. 기업명, 기관명, 고유명사 등의 오탈자
 
 [🚨 출력 규칙]
 1. 반드시 **마크다운 표(Table)** 형식으로만 출력 (| 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |).
-2. 평가에 치명적인 '진짜 찐 오류'만 최대 5개 이내로 요약.
+2. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 요약 리포트 작성.
 3. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
 
 [제안서 내용]
 {full_text[:40000]}"""
-                    # ⚡ 강제 종료 족쇄 제거 완료
                     return model.generate_content(grammar_prompt).text
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
