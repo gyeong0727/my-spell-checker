@@ -15,6 +15,9 @@ except Exception as e:
 
 model = genai.GenerativeModel('gemini-2.5-flash')
 
+# ✨ [핵심 차단 장치 1] AI의 상상력을 0%로 고정하여 헛것(환각)을 보는 현상 원천 차단
+strict_config = genai.types.GenerationConfig(temperature=0.0)
+
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
 st.title("🛡️ KMA 제안 블라인드 및 오타 검수 시스템 🚀")
@@ -43,16 +46,18 @@ if uploaded_file is not None:
                 full_text = ""
                 vision_payload = [] 
                 
-                # ✨ [핵심 업데이트] AI의 '과잉 탐지(헛것 보는 현상)'를 차단하는 엄격한 지시사항 추가
-                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 엄격하고 객관적인 시각 분석관입니다. 
-첨부된 이미지들은 제안서의 각 페이지이며, 이미지 바로 앞에 '[N 페이지]'라는 꼬리표(텍스트)가 붙어 있습니다.
+                # ✨ [핵심 차단 장치 2] 로고 발견 시 '색상'과 '모양'을 의무적으로 묘사하게 하여 텍스트 오인 방지
+                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 '매우 깐깐하고 보수적인' 시각 분석관입니다. 
+첨부된 이미지들은 제안서의 각 페이지이며, 이미지 바로 앞에 '[N 페이지]'라는 꼬리표가 붙어 있습니다.
 
-[🚨 핵심 지시사항]
-1. 오직 '한국능률협회' 또는 'KMA'의 **명백하고 공식적인 그림/도형 형태의 로고나 심볼 마크**가 존재하는지만 확인하세요.
-2. [매우 중요] 제안서에 흔히 쓰이는 일반적인 비즈니스 아이콘(사람, 과녁, 화살표 등), 단순한 배경 무늬, 도형, 그래프, 차트 등은 절대 로고로 오인하여 지적하지 마세요.
-3. 문서나 이미지 속에 타이핑된 '일반 텍스트(글자)'는 철저히 무시하세요.
-4. 명백한 로고가 발견된 경우에만, 한 줄에 하나씩 줄바꿈(- )을 해서 명시하세요. (예: - ❌ 제 12페이지: 우측 하단 KMA 로고 발견)
-5. 확실한 시각적 로고가 없다면 억지로 찾아내려 하지 말고, 단호하게 '✅ 위반 없음'이라고 답변하세요."""
+[🚨 허위 신고(과잉 탐지) 원천 차단 특별 규칙 - 반드시 지키세요]
+1. 오직 '한국능률협회' 또는 'KMA'의 **명백한 그림/도형 형태의 공식 로고나 마크**만 찾으세요.
+2. 문서 본문, 표, 다이어그램, 그래프 안에 단순히 타이핑된 '글자(텍스트)'는 로고가 아닙니다. 절대 지적하지 마세요.
+3. [가장 중요] 로고를 발견했다고 판단한 경우, 허위 신고를 막기 위해 **반드시 해당 로고의 '색상'과 '도형의 생김새'를 구체적으로 묘사**해야 합니다.
+   - 올바른 예: - ❌ 제 3페이지: 우측 하단에 파란색 선과 구체 모양으로 이루어진 KMA 마크 발견
+   - 잘못된 예(기각): - ❌ 제 5페이지: KMA 로고 발견 (색상과 도형 묘사가 불가능하므로 단순 글자로 간주하여 무효 처리)
+4. 색상과 도형의 생김새를 명확히 설명할 수 없다면, 그것은 로고가 아니므로 단호하게 무시하세요.
+5. 확실한 시각적 로고가 단 하나도 없다면 '✅ 위반 없음'이라고 답변하세요."""
                 
                 vision_payload.append(vision_prompt)
                 
@@ -89,7 +94,8 @@ if uploaded_file is not None:
                 with st.spinner("⚡ 제미나이가 '로고(초정밀 스캔)'와 '맞춤법'을 동시에 분석 중입니다..."):
                     
                     def run_vision_task():
-                        return model.generate_content(vision_payload).text
+                        # ✨ 생성 옵션(generation_config)에 strict_config(temperature 0.0)를 적용합니다.
+                        return model.generate_content(vision_payload, generation_config=strict_config).text
 
                     def run_grammar_task():
                         grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
@@ -114,7 +120,8 @@ if uploaded_file is not None:
 
 [제안서 내용]
 {full_text[:40000]}"""
-                        return model.generate_content(grammar_prompt).text
+                        # 텍스트 검수도 깐깐하게 하도록 옵션 적용
+                        return model.generate_content(grammar_prompt, generation_config=strict_config).text
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future_vision = executor.submit(run_vision_task)
