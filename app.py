@@ -17,15 +17,17 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (정밀 스캔 🚀)")
-st.write("초경량 압축 기술과 정밀 추적 알고리즘으로 빠르고 정확하게 스캔합니다.")
+st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 🚀")
+st.write("30초 이내에 검수가 완료되지만, 제안서 용량과 인터넷 환경에 따라 검수시간이 늘어날 수 있습니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf", "ppt", "pptx"])
 
 if uploaded_file is not None:
     
+    # ✨ [핵심 업데이트] 파일이 올라오자마자 자동으로 떴다 사라지는 '토스트 팝업' 알림
     if uploaded_file.name.lower().endswith(('.ppt', '.pptx')):
-        st.warning("🚨 앗! PPT 파일은 바로 검수할 수 없습니다. 파워포인트에서 **[다른 이름으로 저장] ➔ [PDF]**로 변환하신 후 다시 올려주세요!")
+        st.toast("🚨 PPT 파일은 검수할 수 없습니다! PDF로 변환해 주세요.", icon="❌")
+        st.error("🚨 **파일 형식 오류:** PPT 파일은 바로 검수할 수 없습니다.\n\n파워포인트에서 **[다른 이름으로 저장] ➔ [PDF]**로 변환하신 후 다시 올려주세요!")
     
     else:
         if st.button("🚀 통합 검수 시작"):
