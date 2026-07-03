@@ -17,8 +17,8 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (정밀 스캔 🚀)")
-st.write("초경량 압축 기술과 정밀 추적 알고리즘으로 빠르고 정확하게 스캔합니다.")
+st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템🚀")
+st.write("30초 이내 검수가 완료되지만, 제안서 용량과 환경에 따라 검수 작업 시간이 늘어날 수 있습니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf"])
 
