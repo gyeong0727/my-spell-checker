@@ -14,17 +14,17 @@ except Exception as e:
     st.stop()
 
 model = genai.GenerativeModel('gemini-2.5-flash')
+strict_config = genai.types.GenerationConfig(temperature=0.0)
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (정밀 스캔 🚀)")
-st.write("초경량 압축 기술과 정밀 추적 알고리즘으로 빠르고 정확하게 스캔합니다.")
+st.title("🛡️ KMA 제안 블라인드 및 오타 검수 시스템 🚀")
+st.write("30초 이내에 검수가 완료되지만, 제안서 용량과 인터넷 환경에 따라 검수시간이 늘어날 수 있습니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf", "ppt", "pptx"])
 
 if uploaded_file is not None:
     
-    # ✨ [핵심 업데이트] 파일이 올라오자마자 자동으로 떴다 사라지는 '토스트 팝업' 알림
     if uploaded_file.name.lower().endswith(('.ppt', '.pptx')):
         st.toast("🚨 PPT 파일은 검수할 수 없습니다! PDF로 변환해 주세요.", icon="❌")
         st.error("🚨 **파일 형식 오류:** PPT 파일은 바로 검수할 수 없습니다.\n\n파워포인트에서 **[다른 이름으로 저장] ➔ [PDF]**로 변환하신 후 다시 올려주세요!")
@@ -44,36 +44,34 @@ if uploaded_file is not None:
                 full_text = ""
                 vision_payload = [] 
                 
-                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 예리한 시각 분석관입니다. 
+                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 엄격하고 객관적인 시각 분석관입니다. 
 첨부된 이미지들은 제안서의 각 페이지이며, 이미지 바로 앞에 '[N 페이지]'라는 꼬리표(텍스트)가 붙어 있습니다.
 
 [🚨 핵심 지시사항]
-1. '한국능률협회' 또는 'KMA'의 '그림/도형 형태의 로고나 마크'가 존재하는지 샅샅이 확인하세요.
-2. 로고가 발견되면, 해당 이미지 바로 앞에 적힌 페이지 번호를 그대로 가져와 명시하세요. (예: ❌ 제 59페이지: 하단 KMA 로고 발견)
-3. 문서에 타이핑된 '일반 텍스트(글자)'는 절대 지적하지 마세요.
-4. 시각적 로고가 없다면 억지로 찾지 말고 단호하게 '✅ 위반 없음'이라고 답변하세요."""
+1. 공식 로고나 마크(도형/심볼)가 발견되면, 페이지 번호를 명시하세요.
+2. 단순 글자(텍스트)는 로고가 아닙니다. 절대 지적하지 마세요.
+3. 확실한 로고가 없다면 '✅ 위반 없음'이라고 답변하세요."""
                 
                 vision_payload.append(vision_prompt)
                 
+                # ✨ (사)한국능률협회 포함 금지어 설정 완료
                 forbidden_words = ["(사)한국능률협회", "KMA", "능률협회", "한국능률협회", "한국능률협회 부산경남본부"]
                 found_text_violations = []
                 
                 for page_num in range(total_pages):
                     page = doc.load_page(page_num)
                     page_text = page.get_text()
-                    
                     full_text += f"\n--- [ {page_num + 1} 페이지 ] ---\n" + page_text + "\n"
                     
                     for word in forbidden_words:
-                        if word in page_text and f"'{word}'" not in str(found_text_violations):
-                            found_text_violations.append(f"📄 제 {page_num+1}페이지: '{word}' 문구 발견 (텍스트)")
+                        if word in page_text:
+                            v_msg = f"📄 제 {page_num+1}페이지: '{word}' 문구 발견"
+                            if v_msg not in found_text_violations:
+                                found_text_violations.append(v_msg)
                     
                     pix = page.get_pixmap(dpi=40)
-                    img_data = pix.tobytes("png")
-                    
-                    img = Image.open(io.BytesIO(img_data)).convert("RGB")
+                    img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
                     img.thumbnail((300, 300)) 
-                    
                     vision_payload.append(f"[{page_num + 1} 페이지]")
                     vision_payload.append(img)
                     
@@ -83,32 +81,29 @@ if uploaded_file is not None:
                 time.sleep(0.5)
                 my_bar.empty()
                 
-                with st.spinner("⚡ 제미나이가 '로고(초정밀 스캔)'와 '맞춤법'을 동시에 분석 중입니다..."):
+                with st.spinner("⚡ 제미나이가 '로고'와 '문맥 오타'를 정밀 분석 중입니다..."):
                     
                     def run_vision_task():
-                        return model.generate_content(vision_payload).text
+                        return model.generate_content(vision_payload, generation_config=strict_config).text
 
                     def run_grammar_task():
+                        # ✨ 표(Table) 형식 복구 완료
                         grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
 다음 텍스트에서 '문맥에 맞지 않는 치명적인 단어 오타(예: 사전설문 -> 사적설문)'와 '의미가 왜곡되는 비문'을 예리하게 찾아내어 작성해 주세요.
 
-[🚨 제안서 특화 예외 규칙 - 절대 지적 금지]
-1. 제안서 특유의 강조형/슬로건 문구는 다소 길거나 어색하더라도 절대 지적 금지.
-2. 개조식 문장(명사로 끝나는 문장) 무시.
-3. 띄어쓰기 오류는 100% 무시.
+[🚨 제안서 특화 예외 규칙]
+1. 제안서 특유의 강조형/슬로건 문구는 절대 지적 금지.
+2. 개조식 문장 및 띄어쓰기 오류 100% 무시.
 
-[🎯 집중 검출 대상 (이런 오타를 찾으세요)]
-1. 철자 기입 실수로 문맥이 완전히 어색해진 단어 (예: 사전설문 -> 사적설문, 결재 -> 결제 등)
-2. 기업명, 기관명, 고유명사 등의 오탈자
-
-[🚨 출력 규칙]
-1. 반드시 **마크다운 표(Table)** 형식으로만 출력 (| 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |).
-2. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 요약 리포트 작성.
-3. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
+[🎯 출력 규칙 - 반드시 표 사용]
+1. 결과는 반드시 **마크다운 표(Table)** 형식으로만 출력하세요.
+2. 양식: | 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |
+3. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 출력.
+4. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
 
 [제안서 내용]
 {full_text[:40000]}"""
-                        return model.generate_content(grammar_prompt).text
+                        return model.generate_content(grammar_prompt, generation_config=strict_config).text
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future_vision = executor.submit(run_vision_task)
@@ -122,7 +117,7 @@ if uploaded_file is not None:
                     if found_text_violations:
                         st.error("❌ 텍스트 블라인드 위반 적발!")
                         for v in found_text_violations:
-                            st.write(v)
+                            st.markdown(f"- **{v}**")
                     else:
                         st.success("✅ 텍스트 금지어 검사 통과 (위반 단어 없음)")
                     st.divider()
@@ -135,7 +130,7 @@ if uploaded_file is not None:
                 
                 with tab2:
                     st.subheader("📊 핵심 오타 및 비문 교정 리포트")
-                    st.write(grammar_result)
+                    st.markdown(grammar_result) # 표 형식으로 출력됨
                     st.success("✅ 맞춤법 및 문맥 핵심 검사 완료!")
                         
             except Exception as e:
