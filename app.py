@@ -17,7 +17,7 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (병렬 가속 ⚡)")
+st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (성공적인 수주를 기원합니다!)")
 st.write("단순 오타 교정은 물론, 사본 제출 시 치명적인 **블라인드 위반 요소**까지 완벽하게 적발합니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf"])
@@ -59,7 +59,7 @@ if uploaded_file is not None:
                     images_for_ai.append(img)
             
             # 2단계: AI 멀티스레딩 (동시 스캔)
-            with st.spinner("⚡ 제미나이가 '로고 시각 검사'와 '맞춤법 검사'를 동시에 분석 중입니다... (속도 2배 향상)"):
+            with st.spinner("⚡ 제미나이가 '로고 시각 검사'와 '맞춤법 검사'를 동시에 분석 중입니다... "):
                 
                 def run_vision_task():
                     vision_prompt = """당신은 입찰 제안서의 블라인드 규정 위반을 잡아내는 시각 분석 검수관입니다. 
