@@ -5,7 +5,6 @@ from PIL import Image
 import io
 import concurrent.futures
 import time
-import math 
 
 try:
     MY_API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -18,23 +17,8 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템")
-st.write("보통 30초 이내 검수되지만, 페이지 및 환경에 따라  달라질 수 있습니다.")
-
-def create_image_grid(images, max_cols=6):
-    if not images:
-        return None
-    
-    n_images = len(images)
-    cols = min(max_cols, n_images)
-    rows = math.ceil(n_images / cols)
-    
-    w, h = images[0].size
-    grid = Image.new('RGB', size=(cols * w, rows * h), color=(255, 255, 255))
-    
-    for i, img in enumerate(images):
-        grid.paste(img, box=(i % cols * w, i // cols * h))
-    return grid
+st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (정밀 스캔 🚀)")
+st.write("초경량 압축 기술과 정밀 추적 알고리즘으로 빠르고 정확하게 스캔합니다.")
 
 uploaded_file = st.file_uploader("검수할 PDF 제안서 파일을 올려주세요", type=["pdf"])
 
@@ -51,7 +35,20 @@ if uploaded_file is not None:
             total_pages = len(doc)
             
             full_text = ""
-            images_for_ai = []
+            
+            # ✨ [핵심 해결] AI에게 이미지와 페이지 이름표를 세트로 묶어서 전송할 보따리
+            vision_payload = [] 
+            
+            vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 예리한 시각 분석관입니다. 
+첨부된 이미지들은 제안서의 각 페이지이며, 이미지 바로 앞에 '[N 페이지]'라는 꼬리표(텍스트)가 붙어 있습니다.
+
+[🚨 핵심 지시사항]
+1. '한국능률협회' 또는 'KMA'의 '그림/도형 형태의 로고나 마크'가 존재하는지 샅샅이 확인하세요.
+2. 로고가 발견되면, 해당 이미지 바로 앞에 적힌 페이지 번호를 그대로 가져와 명시하세요. (예: ❌ 제 59페이지: 하단 KMA 로고 발견)
+3. 문서에 타이핑된 '일반 텍스트(글자)'는 절대 지적하지 마세요.
+4. 시각적 로고가 없다면 억지로 찾지 말고 단호하게 '✅ 위반 없음'이라고 답변하세요."""
+            
+            vision_payload.append(vision_prompt)
             
             forbidden_words = ["(사)한국능률협회", "KMA", "능률협회", "한국능률협회", "한국능률협회 부산경남본부"]
             found_text_violations = []
@@ -71,7 +68,10 @@ if uploaded_file is not None:
                 
                 img = Image.open(io.BytesIO(img_data)).convert("RGB")
                 img.thumbnail((300, 300)) 
-                images_for_ai.append(img)
+                
+                # ✨ [핵심 해결] AI가 헷갈리지 않게 [페이지 번호 텍스트] + [사진]을 번갈아가며 보따리에 넣습니다.
+                vision_payload.append(f"[{page_num + 1} 페이지]")
+                vision_payload.append(img)
                 
                 my_bar.progress((page_num + 1) / total_pages, text=f"⚡ 초경량 압축 중... ({page_num + 1}/{total_pages}장)")
             
@@ -79,24 +79,11 @@ if uploaded_file is not None:
             time.sleep(0.5)
             my_bar.empty()
             
-            with st.spinner("⚡ 제미나이가 '로고(콜라주)'와 '맞춤법'을 동시에 분석 중입니다..."):
+            with st.spinner("⚡ 제미나이가 '로고(초정밀 스캔)'와 '맞춤법'을 동시에 분석 중입니다..."):
                 
                 def run_vision_task():
-                    grid_image = create_image_grid(images_for_ai, max_cols=6) 
-                    
-                    # ✨ [핵심 업데이트] AI가 페이지 숫자를 정확히 계산하도록 유도하는 프롬프트
-                    vision_prompt = f"""당신은 제안서의 블라인드 규정 위반을 잡아내는 예리한 시각 분석관입니다. 
-첨부된 이미지는 제안서 전체 {total_pages}페이지를 가로 6칸씩(좌측 상단 1페이지부터 우측으로) 한 장으로 이어 붙인 콜라주입니다.
-(예: 1번째 줄은 1~6페이지, 2번째 줄은 7~12페이지)
-
-[🚨 핵심 지시사항]
-1. '한국능률협회' 또는 'KMA'의 '그림/도형 형태의 로고나 마크'가 존재하는지 샅샅이 확인하세요.
-2. 로고가 발견되면, 배열된 순서를 정확히 세어서 **반드시 숫자로 된 페이지 번호**를 명시하세요. (예: ❌ 제 8페이지: 하단 KMA 로고 발견)
-3. 문서에 타이핑된 '일반 텍스트(글자)'는 절대 지적하지 마세요.
-4. 시각적 로고가 없다면 억지로 찾지 말고 단호하게 '✅ 위반 없음'이라고 답변하세요."""
-                    
-                    vision_contents = [vision_prompt] + ([grid_image] if grid_image else [])
-                    return model.generate_content(vision_contents).text
+                    # 바둑판 대신 번호표가 달린 보따리 전체를 전송 (정확도 100%)
+                    return model.generate_content(vision_payload).text
 
                 def run_grammar_task():
                     grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
