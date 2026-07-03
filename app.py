@@ -16,7 +16,7 @@ except Exception as e:
 
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-st.set_page_config(page_title="KMA 제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
 st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템")
 st.write("보통 30초 이내 검수되지만, 페이지 및 환경에 따라  달라질 수 있습니다.")
