@@ -17,7 +17,7 @@ model = genai.GenerativeModel('gemini-2.5-flash')
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
 
-st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 (정밀 스캔 🚀)")
+st.title("🛡️ 제안서 블라인드 및 오타 검수 시스템 🚀")
 st.write("초경량 압축 기술과 정밀 추적 알고리즘으로 빠르고 정확하게 스캔합니다.")
 
 # ✨ [UX 개선] PPT 확장자도 일단 허용하여 거슬리는 빨간 에러창(Toast)이 뜨는 것을 방지합니다.
@@ -121,4 +121,23 @@ if uploaded_file is not None:
                 with tab1:
                     st.subheader("🕵️‍♂️ 블라인드 심사 규정 위반 검사")
                     if found_text_violations:
-                        st.error("❌ 텍스트 블라인
+                        st.error("❌ 텍스트 블라인드 위반 적발!")
+                        for v in found_text_violations:
+                            st.write(v)
+                    else:
+                        st.success("✅ 텍스트 금지어 검사 통과 (위반 단어 없음)")
+                    st.divider()
+                    
+                    if "위반 없음" in vision_result or "발견되지 않았" in vision_result:
+                        st.success("✅ 로고 이미지 검사 통과 (시각적 마크 발견되지 않음)")
+                    else:
+                        st.warning("⚠️ 이미지 형태의 로고 분석 결과 확인 필요")
+                    st.write(vision_result)
+                
+                with tab2:
+                    st.subheader("📊 핵심 오타 및 비문 교정 리포트")
+                    st.write(grammar_result)
+                    st.success("✅ 맞춤법 및 문맥 핵심 검사 완료!")
+                        
+            except Exception as e:
+                st.error(f"실행 중 오류가 발생했습니다: {e}")
