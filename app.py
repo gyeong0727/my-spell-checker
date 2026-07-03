@@ -14,8 +14,6 @@ except Exception as e:
     st.stop()
 
 model = genai.GenerativeModel('gemini-2.5-flash')
-
-# ✨ [핵심 차단 장치 1] AI의 상상력을 0%로 고정하여 헛것(환각)을 보는 현상 원천 차단
 strict_config = genai.types.GenerationConfig(temperature=0.0)
 
 st.set_page_config(page_title="제안서 통합 검수 시스템", page_icon="🛡️", layout="wide")
@@ -46,18 +44,14 @@ if uploaded_file is not None:
                 full_text = ""
                 vision_payload = [] 
                 
-                # ✨ [핵심 차단 장치 2] 로고 발견 시 '색상'과 '모양'을 의무적으로 묘사하게 하여 텍스트 오인 방지
-                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 '매우 깐깐하고 보수적인' 시각 분석관입니다. 
+                vision_prompt = """당신은 제안서의 블라인드 규정 위반을 잡아내는 엄격한 시각 분석관입니다. 
 첨부된 이미지들은 제안서의 각 페이지이며, 이미지 바로 앞에 '[N 페이지]'라는 꼬리표가 붙어 있습니다.
 
-[🚨 허위 신고(과잉 탐지) 원천 차단 특별 규칙 - 반드시 지키세요]
-1. 오직 '한국능률협회' 또는 'KMA'의 **명백한 그림/도형 형태의 공식 로고나 마크**만 찾으세요.
-2. 문서 본문, 표, 다이어그램, 그래프 안에 단순히 타이핑된 '글자(텍스트)'는 로고가 아닙니다. 절대 지적하지 마세요.
-3. [가장 중요] 로고를 발견했다고 판단한 경우, 허위 신고를 막기 위해 **반드시 해당 로고의 '색상'과 '도형의 생김새'를 구체적으로 묘사**해야 합니다.
-   - 올바른 예: - ❌ 제 3페이지: 우측 하단에 파란색 선과 구체 모양으로 이루어진 KMA 마크 발견
-   - 잘못된 예(기각): - ❌ 제 5페이지: KMA 로고 발견 (색상과 도형 묘사가 불가능하므로 단순 글자로 간주하여 무효 처리)
-4. 색상과 도형의 생김새를 명확히 설명할 수 없다면, 그것은 로고가 아니므로 단호하게 무시하세요.
-5. 확실한 시각적 로고가 단 하나도 없다면 '✅ 위반 없음'이라고 답변하세요."""
+[🚨 핵심 지시사항]
+1. 공식 로고나 마크(도형/심볼)가 발견되면, 예시처럼 한 줄씩 나열하세요.
+   (예시) - ❌ 제 59페이지: 우측 하단 KMA 로고 발견
+2. 단순 글자(텍스트)는 절대 지적하지 마세요.
+3. 확실한 로고가 없다면 '✅ 위반 없음'이라고 답변하세요."""
                 
                 vision_payload.append(vision_prompt)
                 
@@ -67,7 +61,6 @@ if uploaded_file is not None:
                 for page_num in range(total_pages):
                     page = doc.load_page(page_num)
                     page_text = page.get_text()
-                    
                     full_text += f"\n--- [ {page_num + 1} 페이지 ] ---\n" + page_text + "\n"
                     
                     for word in forbidden_words:
@@ -77,11 +70,8 @@ if uploaded_file is not None:
                                 found_text_violations.append(v_msg)
                     
                     pix = page.get_pixmap(dpi=40)
-                    img_data = pix.tobytes("png")
-                    
-                    img = Image.open(io.BytesIO(img_data)).convert("RGB")
+                    img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
                     img.thumbnail((300, 300)) 
-                    
                     vision_payload.append(f"[{page_num + 1} 페이지]")
                     vision_payload.append(img)
                     
@@ -91,33 +81,28 @@ if uploaded_file is not None:
                 time.sleep(0.5)
                 my_bar.empty()
                 
-                with st.spinner("⚡ 제미나이가 '로고(초정밀 스캔)'와 '맞춤법'을 동시에 분석 중입니다..."):
+                with st.spinner("⚡ 제미나이가 '로고'와 '문맥 오타'를 정밀 분석 중입니다..."):
                     
                     def run_vision_task():
-                        # ✨ 생성 옵션(generation_config)에 strict_config(temperature 0.0)를 적용합니다.
                         return model.generate_content(vision_payload, generation_config=strict_config).text
 
                     def run_grammar_task():
-                    grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
+                        # ✨ [복구] 표(Table) 형식으로 출력하도록 프롬프트 원복
+                        grammar_prompt = f"""당신은 공공기관 실무 제안서를 검수하는 꼼꼼한 최고위 심사위원입니다. 
 다음 텍스트에서 '문맥에 맞지 않는 치명적인 단어 오타(예: 사전설문 -> 사적설문)'와 '의미가 왜곡되는 비문'을 예리하게 찾아내어 작성해 주세요.
 
-[🚨 제안서 특화 예외 규칙 - 절대 지적 금지]
-1. 제안서 특유의 강조형/슬로건 문구는 다소 길거나 어색하더라도 절대 지적 금지.
-2. 개조식 문장(명사로 끝나는 문장) 무시.
-3. 띄어쓰기 오류는 100% 무시.
+[🚨 제안서 특화 예외 규칙]
+1. 제안서 특유의 강조형/슬로건 문구는 절대 지적 금지.
+2. 개조식 문장 및 띄어쓰기 오류 100% 무시.
 
-[🎯 집중 검출 대상 (이런 오타를 찾으세요)]
-1. 철자 기입 실수로 문맥이 완전히 어색해진 단어 (예: 사전설문 -> 사적설문, 결재 -> 결제 등)
-2. 기업명, 기관명, 고유명사 등의 오탈자
-
-[🚨 출력 규칙]
-1. 반드시 **마크다운 표(Table)** 형식으로만 출력 (| 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |).
-2. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 요약 리포트 작성.
-3. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
+[🎯 출력 규칙 - 반드시 표 사용]
+1. 결과는 반드시 **마크다운 표(Table)** 형식으로만 출력하세요.
+2. 양식: | 오류 페이지 | 기존 문장 | 수정된 문장 | 교정 사유 |
+3. 진짜 수정이 필요한 핵심 오타들만 모아서 최대 10개 이내로 출력.
+4. 오류가 없다면 '✅ 치명적인 오타 및 오류가 발견되지 않았습니다'라고만 출력.
 
 [제안서 내용]
 {full_text[:40000]}"""
-                        # 텍스트 검수도 깐깐하게 하도록 옵션 적용
                         return model.generate_content(grammar_prompt, generation_config=strict_config).text
 
                     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -145,7 +130,7 @@ if uploaded_file is not None:
                 
                 with tab2:
                     st.subheader("📊 핵심 오타 및 비문 교정 리포트")
-                    st.write(grammar_result)
+                    st.write(grammar_result) # 표 형식으로 출력됨
                     st.success("✅ 맞춤법 및 문맥 핵심 검사 완료!")
                         
             except Exception as e:
